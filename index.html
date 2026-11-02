@@ -340,6 +340,10 @@
   .reader .mcq .opts{margin-bottom:0;}
   .reader .mcq .opt{min-width:118px;}
   @media (max-width:680px){ .reader .mcq{width:100%; padding-right:0;} }
+  /* Bilingual board pattern: Urdu lines inside the paper */
+  .reader .ur-line{font-family:"Noto Nastaliq Urdu",serif; line-height:2.1; text-align:right;}
+  .reader [dir="rtl"]{text-align:right;}
+  .reader .mcq .q.urdu{margin-top:5px;}
   /* Exam-paper header block — printed by the APP itself (never by the
      AI engine), in the teacher's own fixed pattern: exactly TWO rows.
      Row 1: School Name, EMIS Code, Class. Row 2: Section, Roll Number,
@@ -964,7 +968,7 @@
     </div>
 
     <div class="tool-panel" id="panel-paper" role="tabpanel" aria-labelledby="tab-paper">
-      <p class="tool-desc">A complete <b>exam paper / class test</b>, ready to use — Section A (MCQs), Section B (Short Questions) and Section C (Long Questions), with marks distribution. The <b>answer key</b> and the <b>marking rubric for every long question</b> (a criteria-wise marks breakup, so every student's paper is marked the same fair way) are generated as <b>two separate documents</b> under the paper — each with its own Copy and PDF button — so you print the paper for your students and take the key and the rubric only when you want them. The MCQs are laid out compactly, with the four options side by side, so the whole paper stays short and neat. First choose how much of the book the paper covers, then the total marks. You can also add your <b>school name, EMIS code, class, section, roll number and date</b> below — the app prints them at the very top of the paper in one fixed header of exactly two bold, centred rows (School Name · EMIS Code · Class, then Section · Roll Number · Date), each value on a ruled line, exactly like a real school paper.</p>
+      <p class="tool-desc">A complete <b>exam paper / class test</b>, ready to use — Section A (MCQs), Section B (Short Questions) and Section C (Long Questions), with marks distribution. The <b>answer key</b> and the <b>marking rubric for every long question</b> (a criteria-wise marks breakup, so every student's paper is marked the same fair way) are generated as <b>two separate documents</b> under the paper — each with its own Copy and PDF button — so you print the paper for your students and take the key and the rubric only when you want them. The MCQs are laid out compactly, with the four options side by side, so the whole paper stays short and neat. Following the board pattern, every question is printed in <b>English and Urdu together</b>, so one printed paper serves both English-medium and Urdu-medium students. First choose how much of the book the paper covers, then the total marks. You can also add your <b>school name, EMIS code, class, section, roll number and date</b> below — the app prints them at the very top of the paper in one fixed header of exactly two bold, centred rows (School Name · EMIS Code · Class, then Section · Roll Number · Date), each value on a ruled line, exactly like a real school paper.</p>
       <div style="margin-bottom:16px;">
         <label class="f-label" id="scopeLabel">Paper coverage — how much of the book?</label>
         <div class="pills" role="group" aria-labelledby="scopeLabel" id="scopePills">
@@ -1171,6 +1175,9 @@ function engineExtractText(raw) {
   }
   return out;
 }
+function matchOptLine(t) {
+  return t.match(/^\(([A-D])\)\s+(.+)$/) || t.match(/^([A-D])[.)]\s+(.+)$/) || t.match(/^(الف|ب|ج|د)[.)]\s+(.+)$/);
+}
 function engineRenderMarkdown(text, paperMode) {
   /* The engine sometimes answers with HTML formatting instead of
      markdown — e.g. <center><b>School Name</b></center> for the paper
@@ -1204,7 +1211,12 @@ function engineRenderMarkdown(text, paperMode) {
   }
   var lines = esc.split("\n"), html = [], i = 0, para = [], olNext = 1, mcqNo = 0;
   function flushPara() {
-    if (para.length) { html.push("<p>" + inline(para.join("<br>")) + "</p>"); para = []; }
+    if (para.length) {
+      var pj = para.join("<br>");
+      if (paperMode && /[\u0600-\u06FF]/.test(pj)) html.push("<p dir=\"rtl\" class=\"ur-line\">" + inline(pj) + "</p>");
+      else html.push("<p>" + inline(pj) + "</p>");
+      para = [];
+    }
   }
   while (i < lines.length) {
     var line = lines[i], tt = line.replace(/^\s+|\s+$/g, "");
@@ -1212,7 +1224,7 @@ function engineRenderMarkdown(text, paperMode) {
     var um = tt.match(/^([-*•])\s+(.+)$/);
     var om = tt.match(/^(\d+)[.)]\s+(.+)$/);
     var cm = tt.match(/^@@CENTER@@\s*(.*)$/);
-    var optm = paperMode ? (tt.match(/^\(([A-D])\)\s+(.+)$/) || tt.match(/^([A-D])[.)]\s+(.+)$/)) : null;
+    var optm = paperMode ? matchOptLine(tt) : null;
     if (cm) {
       flushPara();
       html.push("<div class=\"paper-title\">" + inline(cm[1]) + "</div>");
@@ -1241,19 +1253,41 @@ function engineRenderMarkdown(text, paperMode) {
           var mm = lt.match(/^\d+[.)]\s+(.+)$/);
           if (!mm) break;
           var nxt = (i + 1 < lines.length) ? lines[i + 1].replace(/^\s+|\s+$/g, "") : "";
-          if (/^(\([A-D]\)|[A-D][.)])\s+/.test(nxt)) {
+          if (matchOptLine(nxt)) {
             mcqNo++;
-            var qHtml = "<div class=\"mcq\"><div class=\"q\"><strong>" + mcqNo + ".</strong> " + inline(mm[1]) + "</div>";
+            var block = "<div class=\"mcq\"><div class=\"q\"><strong>" + mcqNo + ".</strong> " + inline(mm[1]) + "</div>";
             i++;
             var spansM = [];
             while (i < lines.length) {
               var ot = lines[i].replace(/^\s+|\s+$/g, "");
-              var oo = ot.match(/^\(([A-D])\)\s+(.+)$/) || ot.match(/^([A-D])[.)]\s+(.+)$/);
+              var oo = matchOptLine(ot);
               if (!oo) break;
               spansM.push("<span class=\"opt\"><strong>" + oo[1] + ".</strong> " + inline(oo[2]) + "</span>");
               i++;
             }
-            html.push(qHtml + "<div class=\"opts\">" + spansM.join("") + "</div></div>");
+            block += "<div class=\"opts\">" + spansM.join("") + "</div>";
+            /* Bilingual board pattern: the Urdu version of this MCQ
+               (question line + its own options) belongs INSIDE the
+               same block, directly under the English version. */
+            for (;;) {
+              var saveI = i;
+              while (i < lines.length && !lines[i].replace(/^\s+|\s+$/g, "")) i++;
+              var tl = (i < lines.length) ? lines[i].replace(/^\s+|\s+$/g, "") : "";
+              var tn = (i + 1 < lines.length) ? lines[i + 1].replace(/^\s+|\s+$/g, "") : "";
+              if (!tl || /^\d+[.)]\s+/.test(tl) || /^#{1,4}\s/.test(tl) || !/[\u0600-\u06FF]/.test(tl) || !matchOptLine(tn)) { i = saveI; break; }
+              block += "<div class=\"q urdu\" dir=\"rtl\">" + inline(tl) + "</div>";
+              i++;
+              var spansU = [];
+              while (i < lines.length) {
+                var otu = lines[i].replace(/^\s+|\s+$/g, "");
+                var oou = matchOptLine(otu);
+                if (!oou) break;
+                spansU.push("<span class=\"opt\"><strong>" + oou[1] + ".</strong> " + inline(oou[2]) + "</span>");
+                i++;
+              }
+              block += "<div class=\"opts\" dir=\"rtl\">" + spansU.join("") + "</div>";
+            }
+            html.push(block + "</div>");
           } else {
             var items = [];
             while (i < lines.length) {
@@ -1261,7 +1295,7 @@ function engineRenderMarkdown(text, paperMode) {
               var mm2 = lt2.match(/^\d+[.)]\s+(.+)$/);
               if (!mm2) break;
               var nx2 = (i + 1 < lines.length) ? lines[i + 1].replace(/^\s+|\s+$/g, "") : "";
-              if (/^(\([A-D]\)|[A-D][.)])\s+/.test(nx2)) break;
+              if (matchOptLine(nx2)) break;
               items.push("<li>" + inline(mm2[1]) + "</li>");
               i++;
             }
@@ -1285,7 +1319,7 @@ function engineRenderMarkdown(text, paperMode) {
       var spans = [];
       while (i < lines.length) {
         var ot = lines[i].replace(/^\s+|\s+$/g, "");
-        var oo = ot.match(/^\(([A-D])\)\s+(.+)$/) || ot.match(/^([A-D])[.)]\s+(.+)$/);
+        var oo = matchOptLine(ot);
         if (!oo) break;
         spans.push("<span class=\"opt\"><strong>" + oo[1] + ".</strong> " + inline(oo[2]) + "</span>");
         i++;
@@ -1786,6 +1820,10 @@ function buildPrompt() {
      lang === "Roman Urdu" ? " Use Latin/Roman script only (the way Pakistanis type Urdu in Roman letters), simple and natural." :
      " Use clear, simple English suitable for Pakistani school students.") +
     " FORMAT: plain markdown text only — headings with #, bold with **, simple numbered or bulleted lists. NEVER output HTML tags (no <center>, <b>, <br>, <p>, <hr> or any other tag): a tag would be shown to the teacher as raw code.";
+  /* Exam papers follow the board pattern for mixed-medium classes:
+     EVERY question is printed in English AND in Urdu together. */
+  var paperLangRule = "BOARD PATTERN — BILINGUAL PAPER (English + Urdu together): print EVERY question in BOTH languages — first in English, then directly under it the same question in Urdu (proper Urdu script; never Roman Urdu). For each MCQ: the numbered English question line, then its 4 options each on its own line (\"A. ...\", \"B. ...\", \"C. ...\", \"D. ...\"), then the Urdu question line (no number), then the Urdu translation of the 4 options in the same A-D order, each on its own line with the same \"A. \" / \"B. \" / \"C. \" / \"D. \" labels. For each short and long question: the numbered English question, then its Urdu translation on the next line (no number). Keep the section headings in English exactly as specified above. The ANSWER KEY and the MARKING RUBRIC stay in ENGLISH ONLY — they are the teacher's marking documents, not part of the students' paper. Numbers, units, symbols and formulas stay identical in both languages." +
+    " FORMAT: plain markdown text only — headings with #, bold with **, simple numbered or bulleted lists. NEVER output HTML tags (no <center>, <b>, <br>, <p>, <hr> or any other tag): a tag would be shown to the teacher as raw code.";
   var context = "Board: " + board + ". Class: " + cls + ". Subject: " + subject + ". " +
     (top.isCustom ? "Topic (given by the teacher): " : "Chapter: ") + topic + ".";
 
@@ -1886,13 +1924,13 @@ function buildPrompt() {
       "Task: Set a complete, ready-to-print EXAM PAPER of total " + total + " marks " + fromText + " for " + cls + " students of the " + board + " syllabus.\n" +
       "Paper structure (follow exactly):\n" +
       headerRule +
-      "2. SECTION A — Objective (" + secA + " marks): " + aCount + " MCQs, each with 4 options A–D and only one correct answer. Do NOT mark answers here. Write every MCQ as one numbered question line, then its 4 options EACH ON ITS OWN LINE in the exact form \"A. option text\", \"B. option text\", \"C. option text\", \"D. option text\" — the app lays the options out side by side automatically, so never put two options on one line and never use a table.\n" +
+      "2. SECTION A — Objective (" + secA + " marks): " + aCount + " MCQs, each with 4 options A–D and only one correct answer. Do NOT mark answers here. Write every MCQ first in English — one numbered question line, then its 4 options EACH ON ITS OWN LINE in the exact form \"A. option text\", \"B. option text\", \"C. option text\", \"D. option text\" — then the same MCQ in Urdu directly underneath (the Urdu question line without a number, then its 4 options in the same form and the same order). Never put two options on one line and never use a table.\n" +
       "3. SECTION B — Short Questions (" + secB + " marks): " + bCount + " short questions of about " + Math.max(2, Math.round(secB / bCount)) + " marks each.\n" +
       "4. SECTION C — Long Questions (" + secC + " marks): " + longSplitText + " (if " + secC + " is 0, skip Section C).\n" +
       "5. After the paper, add a separate section whose heading line is exactly \"## ANSWER KEY\": the correct option for every MCQ, for each short question the main points an examiner should award marks for, and for each long question the key points only. Do NOT put any marking rubric inside the Answer Key — the rubrics go in their own separate section (rule 6), because the app shows and prints the paper, the answer key and the rubric as three separate documents and the teacher takes only the ones they want.\n" +
       rubricRule +
       spreadRule +
-      langRule;
+      paperLangRule;
   }
   return "You are an expert Pakistani school teacher who explains difficult topics in very simple words.\n" +
     context + "\n" +
@@ -3123,7 +3161,7 @@ document.addEventListener("keydown", function (e) {
 /* Build freshness guard: when a newer build is published, an old open
    tab reloads itself once instead of quietly running yesterday's app. */
 (function () {
-  var BUILD = "20261102b";
+  var BUILD = "20261102c";
   function check() {
     try {
       fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {

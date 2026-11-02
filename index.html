@@ -2209,7 +2209,7 @@ function downloadResult(text) {
     ".ans .ph-v.blank.short{min-width:75px;}" +
     ".ans .ph-v.blank.wide{min-width:165px;}" +
     ".ans code{background:#f0ede6;padding:1px 6px;border-radius:4px;}</style></head><body>" +
-    "<h1>Loona AI Notes</h1><div class='ans'>" + (state.tool === "paper" ? paperHeaderBlockHTML() : "") + engineRenderMarkdown(text, state.tool === "paper") + "</div></body></html>";
+    "<h2>Loona AI Notes</h2><div class='ans'>" + (state.tool === "paper" ? paperHeaderBlockHTML() : "") + engineRenderMarkdown(text, state.tool === "paper") + "</div></body></html>";
   var blob = new Blob([html], { type: "text/html;charset=utf-8" });
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
@@ -3161,7 +3161,7 @@ document.addEventListener("keydown", function (e) {
 /* Build freshness guard: when a newer build is published, an old open
    tab reloads itself once instead of quietly running yesterday's app. */
 (function () {
-  var BUILD = "20261102c";
+  var BUILD = "20261103a";
   function check() {
     try {
       fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {

@@ -327,6 +327,13 @@
   .reader p{margin:8px 0;}
   .reader hr{border:none; border-top:2px solid var(--line-strong); margin:14px 0;}
   .reader .paper-title{text-align:center; font-size:21px; font-weight:800; margin:4px 0 12px; line-height:1.4;}
+  /* MCQ options side by side (compact — keeps the paper short) */
+  .reader .opts{display:flex; flex-wrap:wrap; column-gap:24px; row-gap:2px; margin:1px 0 10px;}
+  .reader .opts .opt{flex:1 1 43%; min-width:180px;}
+  /* Separate teacher documents under the paper: Answer Key / Rubric */
+  .part-label{margin:28px 0 8px; padding:10px 14px; background:#0a4a42; color:#ffe9a8; font-weight:800; border-radius:10px; font-size:1.02rem;}
+  .part-reader{border-top:3px dashed #b9862c;}
+  .part-actions{margin:10px 0 4px;}
   /* Exam-paper header block — printed by the APP itself (never by the
      AI engine), in the teacher's own fixed pattern: exactly TWO rows.
      Row 1: School Name, EMIS Code, Class. Row 2: Section, Roll Number,
@@ -731,6 +738,7 @@
     }
     .result-head{ position:static; border:none; box-shadow:none; padding:0; }
     .reader{ border:none; box-shadow:none; background:#fff; color:#000; padding:0; font-size:12.5pt; }
+    .part-label{ page-break-before:always; background:#fff !important; color:#000 !important; border:1.5px solid #000; }
   }
   @media (prefers-reduced-motion: reduce){
     .card, #aiCard, .result-tools.on{ animation:none; }
@@ -950,7 +958,7 @@
     </div>
 
     <div class="tool-panel" id="panel-paper" role="tabpanel" aria-labelledby="tab-paper">
-      <p class="tool-desc">A complete <b>exam paper / class test</b>, ready to use — Section A (MCQs), Section B (Short Questions) and Section C (Long Questions), with marks distribution, a full answer key, and a <b>marking rubric for every long question</b> (a criteria-wise marks breakup, so every student's paper is marked the same fair way). First choose how much of the book the paper covers, then the total marks. You can also add your <b>school name, EMIS code, class, section, roll number and date</b> below — the app prints them at the very top of the paper in one fixed header of exactly two bold, centred rows (School Name · EMIS Code · Class, then Section · Roll Number · Date), each value on a ruled line, exactly like a real school paper.</p>
+      <p class="tool-desc">A complete <b>exam paper / class test</b>, ready to use — Section A (MCQs), Section B (Short Questions) and Section C (Long Questions), with marks distribution. The <b>answer key</b> and the <b>marking rubric for every long question</b> (a criteria-wise marks breakup, so every student's paper is marked the same fair way) are generated as <b>two separate documents</b> under the paper — each with its own Copy and PDF button — so you print the paper for your students and take the key and the rubric only when you want them. The MCQs are laid out compactly, with the four options side by side, so the whole paper stays short and neat. First choose how much of the book the paper covers, then the total marks. You can also add your <b>school name, EMIS code, class, section, roll number and date</b> below — the app prints them at the very top of the paper in one fixed header of exactly two bold, centred rows (School Name · EMIS Code · Class, then Section · Roll Number · Date), each value on a ruled line, exactly like a real school paper.</p>
       <div style="margin-bottom:16px;">
         <label class="f-label" id="scopeLabel">Paper coverage — how much of the book?</label>
         <div class="pills" role="group" aria-labelledby="scopeLabel" id="scopePills">
@@ -1157,7 +1165,7 @@ function engineExtractText(raw) {
   }
   return out;
 }
-function engineRenderMarkdown(text) {
+function engineRenderMarkdown(text, paperMode) {
   /* The engine sometimes answers with HTML formatting instead of
      markdown — e.g. <center><b>School Name</b></center> for the paper
      header, or <br> line breaks. Convert that markup to markdown
@@ -1188,7 +1196,7 @@ function engineRenderMarkdown(text) {
       .replace(/\*\*([^*][\s\S]*?)\*\*/g, "<strong>$1</strong>")
       .replace(/(^|[\s(])\*([^\*\n]+)\*/g, "$1<em>$2</em>");
   }
-  var lines = esc.split("\n"), html = [], i = 0, para = [];
+  var lines = esc.split("\n"), html = [], i = 0, para = [], olNext = 1;
   function flushPara() {
     if (para.length) { html.push("<p>" + inline(para.join("<br>")) + "</p>"); para = []; }
   }
@@ -1198,6 +1206,7 @@ function engineRenderMarkdown(text) {
     var um = tt.match(/^([-*•])\s+(.+)$/);
     var om = tt.match(/^(\d+)[.)]\s+(.+)$/);
     var cm = tt.match(/^@@CENTER@@\s*(.*)$/);
+    var optm = paperMode ? (tt.match(/^\(([A-D])\)\s+(.+)$/) || tt.match(/^([A-D])[.)]\s+(.+)$/)) : null;
     if (cm) {
       flushPara();
       html.push("<div class=\"paper-title\">" + inline(cm[1]) + "</div>");
@@ -1208,6 +1217,7 @@ function engineRenderMarkdown(text) {
       i++;
     } else if (hm) {
       flushPara();
+      olNext = 1;
       var lvl = Math.min(hm[1].length + 2, 6);
       html.push("<h" + lvl + ">" + inline(hm[2]) + "</h" + lvl + ">");
       i++;
@@ -1221,7 +1231,23 @@ function engineRenderMarkdown(text) {
         items.push("<li>" + inline(mm[1]) + "</li>");
         i++;
       }
-      html.push((ordered ? "<ol>" : "<ul>") + items.join("") + (ordered ? "</ol>" : "</ul>"));
+      if (ordered && paperMode) {
+        html.push((olNext > 1 ? "<ol start=\"" + olNext + "\">" : "<ol>") + items.join("") + "</ol>");
+        olNext += items.length;
+      } else {
+        html.push((ordered ? "<ol>" : "<ul>") + items.join("") + (ordered ? "</ol>" : "</ul>"));
+      }
+    } else if (optm) {
+      flushPara();
+      var spans = [];
+      while (i < lines.length) {
+        var ot = lines[i].replace(/^\s+|\s+$/g, "");
+        var oo = ot.match(/^\(([A-D])\)\s+(.+)$/) || ot.match(/^([A-D])[.)]\s+(.+)$/);
+        if (!oo) break;
+        spans.push("<span class=\"opt\"><strong>" + oo[1] + ".</strong> " + inline(oo[2]) + "</span>");
+        i++;
+      }
+      html.push("<div class=\"opts\">" + spans.join("") + "</div>");
     } else if (!tt) {
       flushPara(); i++;
     } else {
@@ -1230,6 +1256,37 @@ function engineRenderMarkdown(text) {
   }
   flushPara();
   return html.join("\n");
+}
+
+/* ---- Exam paper: split the engine's answer into three documents ----
+   The paper prompt makes the engine finish with two headed sections,
+   "## ANSWER KEY" and "## MARKING RUBRIC". The teacher gets the paper,
+   the key and the rubric as three separate blocks (own Copy / PDF
+   buttons, own printed pages) and takes only the ones they want.
+   Tolerant on purpose: a heading only counts when it is a markdown
+   heading or a full upper-case line, so the words inside an answer
+   never split a document by accident; and if a part is missing, the
+   whole text simply stays in the paper, exactly as before. */
+function splitPaperParts(text) {
+  var lines = String(text).split("\n");
+  var paper = [], key = null, rubric = null, cur = paper;
+  function headKind(t) {
+    var isHead = /^#{1,4}\s/.test(t) || (t.length > 2 && t === t.toUpperCase());
+    if (!isHead) return null;
+    var h = t.replace(/^#+\s*/, "").replace(/\*\*/g, "").replace(/:+$/, "").replace(/\s+/g, " ").toUpperCase();
+    if (h === "ANSWER KEY" || h === "ANSWER KEY & MARKING GUIDE" || h === "ANSWER KEY AND MARKING GUIDE") return "key";
+    if (h === "MARKING RUBRIC" || h === "MARKING RUBRICS" || h === "MARKING GUIDE") return "rubric";
+    return null;
+  }
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].replace(/^\s+|\s+$/g, "");
+    var k = headKind(t);
+    if (k === "key" && key === null) { key = []; cur = key; continue; }
+    if (k === "rubric" && rubric === null) { rubric = []; cur = rubric; continue; }
+    cur.push(lines[i]);
+  }
+  function j(a) { return a === null ? "" : a.join("\n").replace(/^\s+|\s+$/g, ""); }
+  return { paper: j(paper), key: j(key), rubric: j(rubric) };
 }
 
 /* ---- Syllabus data (Punjab PCTB / Federal FBISE) ---- */
@@ -1770,9 +1827,9 @@ function buildPrompt() {
     };
     var rubricRule;
     if (longQ1 === longQ2) {
-      rubricRule = "6. MARKING RUBRIC for long questions: inside the ANSWER KEY & MARKING GUIDE, under EVERY Section C long question, add a rubric titled \"Marking Rubric\" — a criteria-wise breakup of that question's " + longQ1 + " marks, one criterion per line with its marks (for example " + rubricExampleFor(longQ1) + "). The criteria marks MUST add up to exactly " + longQ1 + " (the question's total). Name the criteria to fit that specific question (e.g. for a numerical or process question use steps/method, correct working, final answer), so a teacher can mark every student's paper the same fair way. (Skip this rule only if Section C was skipped.)\n";
+      rubricRule = "6. MARKING RUBRIC for long questions: in a separate final section whose heading line is exactly \"## MARKING RUBRIC\" (after the Answer Key, never inside it and never inside the paper), under a sub-heading naming EACH Section C long question one by one (for example \"Question 1\"), add that question's rubric — a criteria-wise breakup of that question's " + longQ1 + " marks, one criterion per line with its marks (for example " + rubricExampleFor(longQ1) + "). The criteria marks MUST add up to exactly " + longQ1 + " (the question's total). Name the criteria to fit that specific question (e.g. for a numerical or process question use steps/method, correct working, final answer), so a teacher can mark every student's paper the same fair way. (Skip this rule only if Section C was skipped.)\n";
     } else {
-      rubricRule = "6. MARKING RUBRIC for long questions: inside the ANSWER KEY & MARKING GUIDE, under EVERY Section C long question, add a rubric titled \"Marking Rubric\" — a criteria-wise breakup of that question's own marks, one criterion per line with its marks. The criteria MUST add up to exactly that question's total: " + longQ1 + " marks for the first long question (for example " + rubricExampleFor(longQ1) + ") and " + longQ2 + " marks for the second (for example " + rubricExampleFor(longQ2) + "). Name the criteria to fit each specific question (e.g. for a numerical or process question use steps/method, correct working, final answer), so a teacher can mark every student's paper the same fair way. (Skip this rule only if Section C was skipped.)\n";
+      rubricRule = "6. MARKING RUBRIC for long questions: in a separate final section whose heading line is exactly \"## MARKING RUBRIC\" (after the Answer Key, never inside it and never inside the paper), under a sub-heading naming EACH Section C long question one by one (for example \"Question 1\"), add that question's rubric — a criteria-wise breakup of that question's own marks, one criterion per line with its marks. The criteria MUST add up to exactly that question's total: " + longQ1 + " marks for the first long question (for example " + rubricExampleFor(longQ1) + ") and " + longQ2 + " marks for the second (for example " + rubricExampleFor(longQ2) + "). Name the criteria to fit each specific question (e.g. for a numerical or process question use steps/method, correct working, final answer), so a teacher can mark every student's paper the same fair way. (Skip this rule only if Section C was skipped.)\n";
     }
     /* The header is NOT the engine's job any more: the app prints its
        own fixed header block (school name, EMIS code, student name,
@@ -1786,10 +1843,10 @@ function buildPrompt() {
       "Task: Set a complete, ready-to-print EXAM PAPER of total " + total + " marks " + fromText + " for " + cls + " students of the " + board + " syllabus.\n" +
       "Paper structure (follow exactly):\n" +
       headerRule +
-      "2. SECTION A — Objective (" + secA + " marks): " + aCount + " MCQs, each with 4 options A–D and only one correct answer. Do NOT mark answers here.\n" +
+      "2. SECTION A — Objective (" + secA + " marks): " + aCount + " MCQs, each with 4 options A–D and only one correct answer. Do NOT mark answers here. Write every MCQ as one numbered question line, then its 4 options EACH ON ITS OWN LINE in the exact form \"A. option text\", \"B. option text\", \"C. option text\", \"D. option text\" — the app lays the options out side by side automatically, so never put two options on one line and never use a table.\n" +
       "3. SECTION B — Short Questions (" + secB + " marks): " + bCount + " short questions of about " + Math.max(2, Math.round(secB / bCount)) + " marks each.\n" +
       "4. SECTION C — Long Questions (" + secC + " marks): " + longSplitText + " (if " + secC + " is 0, skip Section C).\n" +
-      "5. After the paper, add a section titled \"ANSWER KEY & MARKING GUIDE\": correct option for every MCQ, for each short question the main points an examiner should award marks for, and for each long question the key points PLUS the marking rubric required by rule 6.\n" +
+      "5. After the paper, add a separate section whose heading line is exactly \"## ANSWER KEY\": the correct option for every MCQ, for each short question the main points an examiner should award marks for, and for each long question the key points only. Do NOT put any marking rubric inside the Answer Key — the rubrics go in their own separate section (rule 6), because the app shows and prints the paper, the answer key and the rubric as three separate documents and the teacher takes only the ones they want.\n" +
       rubricRule +
       spreadRule +
       langRule;
@@ -1867,10 +1924,11 @@ function renderResult(text) {
      Copy / Listen use the plain-text twin of that block + the body. */
   var isPaper = state.tool === "paper";
   var bodyText = isPaper ? stripEnginePaperHeader(text) : text;
+  var parts = isPaper ? splitPaperParts(bodyText) : null;
   var fullText = isPaper ? (paperHeaderText() + "\n\n" + bodyText) : text;
   var reader = document.createElement("div");
   reader.className = "reader";
-  reader.innerHTML = engineRenderMarkdown(bodyText);
+  reader.innerHTML = engineRenderMarkdown(isPaper ? parts.paper : bodyText, isPaper);
   if (isPaper) {
     var phWrap = document.createElement("div");
     phWrap.innerHTML = paperHeaderBlockHTML();
@@ -1918,6 +1976,31 @@ function renderResult(text) {
       window.speechSynthesis.speak(u);
     });
     resultActions.appendChild(listenBtn);
+  }
+  if (isPaper && parts && (parts.key || parts.rubric)) {
+    var appendPart = function (label, partText, pdfName) {
+      var lab = document.createElement("div");
+      lab.className = "part-label";
+      lab.textContent = label;
+      resultBody.appendChild(lab);
+      var r2 = document.createElement("div");
+      r2.className = "reader part-reader";
+      if (reader.getAttribute("dir")) { r2.setAttribute("dir", "rtl"); r2.classList.add("urdu"); }
+      r2.innerHTML = engineRenderMarkdown(partText, true);
+      resultBody.appendChild(r2);
+      var acts = document.createElement("div");
+      acts.className = "result-actions part-actions";
+      var c2 = document.createElement("button");
+      c2.type = "button"; c2.className = "btn"; c2.textContent = "Copy";
+      c2.addEventListener("click", function () { copyText(partText, "Copied!"); });
+      var p2 = document.createElement("button");
+      p2.type = "button"; p2.className = "btn primary"; p2.textContent = "Download PDF";
+      p2.addEventListener("click", function () { downloadPDF(r2, pdfName, p2); });
+      acts.appendChild(c2); acts.appendChild(p2);
+      resultBody.appendChild(acts);
+    };
+    if (parts.key) appendPart("\uD83D\uDD11 Answer Key — for the teacher (not for students)", parts.key, "loona-answer-key.pdf");
+    if (parts.rubric) appendPart("\uD83D\uDCCF Marking Rubric — for the teacher (not for students)", parts.rubric, "loona-marking-rubric.pdf");
   }
   setStatus("Your answer is ready — copy or download it for your class.", "ok");
   resultCard.classList.add("show");
@@ -2045,7 +2128,7 @@ function downloadResult(text) {
     ".ans .ph-v.blank.short{min-width:75px;}" +
     ".ans .ph-v.blank.wide{min-width:165px;}" +
     ".ans code{background:#f0ede6;padding:1px 6px;border-radius:4px;}</style></head><body>" +
-    "<h1>Loona AI Notes</h1><div class='ans'>" + (state.tool === "paper" ? paperHeaderBlockHTML() : "") + engineRenderMarkdown(text) + "</div></body></html>";
+    "<h1>Loona AI Notes</h1><div class='ans'>" + (state.tool === "paper" ? paperHeaderBlockHTML() : "") + engineRenderMarkdown(text, state.tool === "paper") + "</div></body></html>";
   var blob = new Blob([html], { type: "text/html;charset=utf-8" });
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");

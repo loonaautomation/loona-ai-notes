@@ -334,6 +334,12 @@
   .part-label{margin:28px 0 8px; padding:10px 14px; background:#0a4a42; color:#ffe9a8; font-weight:800; border-radius:10px; font-size:1.02rem;}
   .part-reader{border-top:3px dashed #b9862c;}
   .part-actions{margin:10px 0 4px;}
+  /* MCQ blocks: two questions side by side in a row (one on phones) */
+  .reader .mcq{display:inline-block; width:49.3%; vertical-align:top; box-sizing:border-box; padding:0 12px 12px 0;}
+  .reader .mcq .q{font-weight:600; line-height:1.45;}
+  .reader .mcq .opts{margin-bottom:0;}
+  .reader .mcq .opt{min-width:118px;}
+  @media (max-width:680px){ .reader .mcq{width:100%; padding-right:0;} }
   /* Exam-paper header block — printed by the APP itself (never by the
      AI engine), in the teacher's own fixed pattern: exactly TWO rows.
      Row 1: School Name, EMIS Code, Class. Row 2: Section, Roll Number,
@@ -1196,7 +1202,7 @@ function engineRenderMarkdown(text, paperMode) {
       .replace(/\*\*([^*][\s\S]*?)\*\*/g, "<strong>$1</strong>")
       .replace(/(^|[\s(])\*([^\*\n]+)\*/g, "$1<em>$2</em>");
   }
-  var lines = esc.split("\n"), html = [], i = 0, para = [], olNext = 1;
+  var lines = esc.split("\n"), html = [], i = 0, para = [], olNext = 1, mcqNo = 0;
   function flushPara() {
     if (para.length) { html.push("<p>" + inline(para.join("<br>")) + "</p>"); para = []; }
   }
@@ -1217,24 +1223,61 @@ function engineRenderMarkdown(text, paperMode) {
       i++;
     } else if (hm) {
       flushPara();
-      olNext = 1;
+      olNext = 1; mcqNo = 0;
       var lvl = Math.min(hm[1].length + 2, 6);
       html.push("<h" + lvl + ">" + inline(hm[2]) + "</h" + lvl + ">");
       i++;
     } else if (um || om) {
       flushPara();
-      var ordered = !!om, items = [];
-      while (i < lines.length) {
-        var lt = lines[i].replace(/^\s+|\s+$/g, "");
-        var mm = ordered ? lt.match(/^\d+[.)]\s+(.+)$/) : lt.match(/^[-*•]\s+(.+)$/);
-        if (!mm) break;
-        items.push("<li>" + inline(mm[1]) + "</li>");
-        i++;
-      }
-      if (ordered && paperMode) {
-        html.push((olNext > 1 ? "<ol start=\"" + olNext + "\">" : "<ol>") + items.join("") + "</ol>");
-        olNext += items.length;
+      if (paperMode && om) {
+        /* Paper mode, numbered items one by one: a question followed by
+           its A-D options becomes ONE compact block (.mcq) carrying a
+           forced sequential number, so blocks sit two per row and the
+           numbering can never restart at 1 whatever the engine wrote;
+           plain numbered questions (Sections B and C) group into a
+           normal list, exactly as before. */
+        while (i < lines.length) {
+          var lt = lines[i].replace(/^\s+|\s+$/g, "");
+          var mm = lt.match(/^\d+[.)]\s+(.+)$/);
+          if (!mm) break;
+          var nxt = (i + 1 < lines.length) ? lines[i + 1].replace(/^\s+|\s+$/g, "") : "";
+          if (/^(\([A-D]\)|[A-D][.)])\s+/.test(nxt)) {
+            mcqNo++;
+            var qHtml = "<div class=\"mcq\"><div class=\"q\"><strong>" + mcqNo + ".</strong> " + inline(mm[1]) + "</div>";
+            i++;
+            var spansM = [];
+            while (i < lines.length) {
+              var ot = lines[i].replace(/^\s+|\s+$/g, "");
+              var oo = ot.match(/^\(([A-D])\)\s+(.+)$/) || ot.match(/^([A-D])[.)]\s+(.+)$/);
+              if (!oo) break;
+              spansM.push("<span class=\"opt\"><strong>" + oo[1] + ".</strong> " + inline(oo[2]) + "</span>");
+              i++;
+            }
+            html.push(qHtml + "<div class=\"opts\">" + spansM.join("") + "</div></div>");
+          } else {
+            var items = [];
+            while (i < lines.length) {
+              var lt2 = lines[i].replace(/^\s+|\s+$/g, "");
+              var mm2 = lt2.match(/^\d+[.)]\s+(.+)$/);
+              if (!mm2) break;
+              var nx2 = (i + 1 < lines.length) ? lines[i + 1].replace(/^\s+|\s+$/g, "") : "";
+              if (/^(\([A-D]\)|[A-D][.)])\s+/.test(nx2)) break;
+              items.push("<li>" + inline(mm2[1]) + "</li>");
+              i++;
+            }
+            html.push((olNext > 1 ? "<ol start=\"" + olNext + "\">" : "<ol>") + items.join("") + "</ol>");
+            olNext += items.length;
+          }
+        }
       } else {
+        var ordered = !!om, items = [];
+        while (i < lines.length) {
+          var lt = lines[i].replace(/^\s+|\s+$/g, "");
+          var mm = ordered ? lt.match(/^\d+[.)]\s+(.+)$/) : lt.match(/^[-*•]\s+(.+)$/);
+          if (!mm) break;
+          items.push("<li>" + inline(mm[1]) + "</li>");
+          i++;
+        }
         html.push((ordered ? "<ol>" : "<ul>") + items.join("") + (ordered ? "</ol>" : "</ul>"));
       }
     } else if (optm) {
@@ -3076,5 +3119,25 @@ document.addEventListener("keydown", function (e) {
 © 2026 Loona Automation · Contact: <a href="mailto:loonaautomation@gmail.com" style="color:#ffd95e">loonaautomation@gmail.com</a><br>
 <a href="index.html" style="color:#ffd95e;margin:0 8px">Home</a>·<a href="about.html" style="color:#ffd95e;margin:0 8px">About</a>·<a href="contact.html" style="color:#ffd95e;margin:0 8px">Contact</a>·<a href="privacy-policy.html" style="color:#ffd95e;margin:0 8px">Privacy Policy</a>
 </div>
+<script>
+/* Build freshness guard: when a newer build is published, an old open
+   tab reloads itself once instead of quietly running yesterday's app. */
+(function () {
+  var BUILD = "20261102b";
+  function check() {
+    try {
+      fetch("version.json?t=" + Date.now(), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.build && j.build !== BUILD && sessionStorage.getItem("loona-build") !== j.build) {
+          sessionStorage.setItem("loona-build", j.build);
+          location.reload();
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  check();
+  setInterval(check, 300000);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) check(); });
+})();
+</script>
 </body>
 </html>

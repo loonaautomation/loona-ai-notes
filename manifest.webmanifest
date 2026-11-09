@@ -1,0 +1,28 @@
+{
+  "name": "Loona AI Notes",
+  "short_name": "AI Notes",
+  "description": "Free AI tools for teachers: MCQ generator, lesson plan maker, easy notes and exam papers for Punjab and Federal boards, Class 1 to 12. Ready in seconds.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#062e2a",
+  "theme_color": "#062e2a",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

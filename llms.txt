@@ -6,13 +6,13 @@
 
 All five tools run on the single homepage below — there are no separate tool pages; the teacher chooses the tool in Step 2 of the page.
 
-- [Loona AI Notes — Home (all 5 tools)](https://loonaautomation.github.io/loona-ai-notes/): The homepage where all five AI study tools run — select board, class, subject and chapter, then choose a tool and generate.
-- [MCQ Maker](https://loonaautomation.github.io/loona-ai-notes/): Generate multiple-choice questions for a chosen chapter — on the homepage, Step 2 tool selection.
-- [Lesson Plan Maker](https://loonaautomation.github.io/loona-ai-notes/): Generate a lesson plan for a chosen chapter — on the homepage, Step 2 tool selection.
-- [Notes](https://loonaautomation.github.io/loona-ai-notes/): Generate easy, student-friendly study notes (Asaan Notes) for a chosen chapter — on the homepage, Step 2 tool selection.
-- [Short Q&A](https://loonaautomation.github.io/loona-ai-notes/): Generate short questions and answers for a chosen chapter — on the homepage, Step 2 tool selection.
-- [Exam Paper Generator](https://loonaautomation.github.io/loona-ai-notes/): Generate an exam paper for a chosen chapter — on the homepage, Step 2 tool selection.
-- [Sitemap](https://loonaautomation.github.io/loona-ai-notes/sitemap.xml): Full list of pages on this site.
+- [Loona AI Notes — Home (all 5 tools)](https://ai-notes.loonaautomation.com/): The homepage where all five AI study tools run — select board, class, subject and chapter, then choose a tool and generate.
+- [MCQ Maker](https://ai-notes.loonaautomation.com/): Generate multiple-choice questions for a chosen chapter — on the homepage, Step 2 tool selection.
+- [Lesson Plan Maker](https://ai-notes.loonaautomation.com/): Generate a lesson plan for a chosen chapter — on the homepage, Step 2 tool selection.
+- [Notes](https://ai-notes.loonaautomation.com/): Generate easy, student-friendly study notes (Asaan Notes) for a chosen chapter — on the homepage, Step 2 tool selection.
+- [Short Q&A](https://ai-notes.loonaautomation.com/): Generate short questions and answers for a chosen chapter — on the homepage, Step 2 tool selection.
+- [Exam Paper Generator](https://ai-notes.loonaautomation.com/): Generate an exam paper for a chosen chapter — on the homepage, Step 2 tool selection.
+- [Sitemap](https://ai-notes.loonaautomation.com/sitemap.xml): Full list of pages on this site.
 
 ## Notes for AI assistants
 
